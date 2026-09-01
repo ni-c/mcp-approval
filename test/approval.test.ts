@@ -16,6 +16,10 @@ const build = (key?: Uint8Array) =>
     ...(key === undefined ? {} : { key }),
   });
 
+/** The same server with the dialog switched off by the operator. */
+const buildSilent = () =>
+  buildServer({ store: new ConfirmationStore(), elicitation: false });
+
 describe('on the 2026-07-28 revision', () => {
   // Here the question is a RETURN value: the call ends, the person decides, and
   // the client retries carrying the answer. Which means the answer arrives as
@@ -329,6 +333,101 @@ describe('a client that cannot be asked at all', () => {
     const replay = await client.call({ ids: ['a'], confirm_token: token });
     expect(replay.isError).toBe(true);
     expect(textOf(replay)).toContain('invalid, expired');
+    expect(built.deleted).toEqual([['a']]);
+    await client.close();
+  });
+});
+
+describe('a client that could be asked, with the dialog switched off', () => {
+  // `elicitation: false` is not "no confirmation". It takes the same path a
+  // client that cannot show a dialog takes, so every assertion of the group
+  // above has to hold here too — against a client that declares the capability
+  // and would have answered.
+
+  it('falls back to the two-call token instead of asking', async () => {
+    const built = buildSilent();
+    const client = await connectLegacy(built, 'accept');
+    const first = await client.call({ ids: ['a'] });
+    expect(client.prompts).toHaveLength(0);
+    expect(textOf(first)).toContain('confirm_token=');
+    expect(built.deleted).toHaveLength(0);
+
+    const done = await client.call({
+      ids: ['a'],
+      confirm_token: tokenOf(first),
+    });
+    expect(client.prompts).toHaveLength(0);
+    expect(built.deleted).toEqual([['a']]);
+    expect(textOf(done)).toContain('deleted a');
+    await client.close();
+  });
+
+  it('names the deployment rather than blaming the client', async () => {
+    // The reason matters to whoever reads the transcript: "this client cannot
+    // ask" would send them to the client, and the client is fine.
+    const built = buildSilent();
+    const client = await connectLegacy(built, 'accept');
+    const first = await client.call({ ids: ['a'] });
+    expect(textOf(first)).toContain(
+      'thing-mcp was started with the approval dialog switched off'
+    );
+    expect(textOf(first)).not.toContain('cannot ask the user directly');
+    await client.close();
+  });
+
+  it('still refuses a token issued for different arguments', async () => {
+    const built = buildSilent();
+    const client = await connectLegacy(built, 'accept');
+    const first = await client.call({ ids: ['a'] });
+    const second = await client.call({
+      ids: ['a', 'b'],
+      confirm_token: tokenOf(first),
+    });
+    expect(second.isError).toBe(true);
+    expect(textOf(second)).toContain('issued for different arguments');
+    expect(built.deleted).toHaveLength(0);
+    await client.close();
+  });
+
+  it('still spends the token, so a replay asks again', async () => {
+    const built = buildSilent();
+    const client = await connectLegacy(built, 'accept');
+    const first = await client.call({ ids: ['a'] });
+    const token = tokenOf(first);
+    await client.call({ ids: ['a'], confirm_token: token });
+    const replay = await client.call({ ids: ['a'], confirm_token: token });
+    expect(replay.isError).toBe(true);
+    expect(built.deleted).toEqual([['a']]);
+    await client.close();
+  });
+
+  it('returns the token on 2026-07-28 too, rather than input_required', async () => {
+    // The era decides how a question is carried, not whether one is asked. If
+    // the switch only worked on the legacy path, the servers behind a modern
+    // gateway would keep prompting with the operator believing otherwise.
+    const built = buildSilent();
+    const client = await connectModern(built);
+    const first = await client.call({ ids: ['a'] });
+    expect(first.resultType).not.toBe('input_required');
+    expect(textOf(first)).toContain('confirm_token=');
+
+    const done = await client.call({
+      ids: ['a'],
+      confirm_token: tokenOf(first),
+    });
+    expect(built.deleted).toEqual([['a']]);
+    await client.close();
+    expect(textOf(done)).toContain('deleted a');
+  });
+
+  it('is the only thing that changed: the same client is asked by default', async () => {
+    // The counter-check. Without it "switchable" is a claim about a flag, not
+    // about behaviour — both directions have to be shown against one client.
+    const built = build();
+    const client = await connectLegacy(built, 'accept');
+    const done = await client.call({ ids: ['a'] });
+    expect(client.prompts).toHaveLength(1);
+    expect(textOf(done)).not.toContain('confirm_token=');
     expect(built.deleted).toEqual([['a']]);
     await client.close();
   });

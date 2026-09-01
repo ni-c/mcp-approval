@@ -21,6 +21,7 @@ import {
 export function buildServer(options: {
   store: ConfirmationStore;
   key?: Uint8Array;
+  elicitation?: boolean;
 }): {
   server: McpServer;
   deleted: string[][];
@@ -31,6 +32,9 @@ export function buildServer(options: {
   const approval = createApproval({
     server: 'thing-mcp',
     ...(options.key === undefined ? {} : { key: options.key }),
+    ...(options.elicitation === undefined
+      ? {}
+      : { elicitation: options.elicitation }),
   });
   const server = new McpServer({ name: 'thing-mcp', version: '0.0.0' });
 

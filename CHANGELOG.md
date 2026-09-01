@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- #region changelog -->
 
+## [0.7.0] - 2026-09-01
+
+### Added
+
+- `elicitation` on `ApprovalOptions`, defaulting to `true`. `false` makes a
+  server take the fallback path even for a client that could be asked — a
+  scheduled job, a test harness, a client whose dialog interrupts something.
+
+  It is deliberately not an escape hatch: `false` is the **two-call token**, not
+  "no confirmation". There is no option in this library that lets a guarded call
+  through unannounced, and adding one would make the sentence every server in
+  this family prints about itself untrue.
+
+### Changed
+
+- The default fallback note now says _which_ of the two reasons applies. It
+  claimed "this client cannot ask the user directly" unconditionally, which is
+  false when the operator switched the dialog off: the client could have been
+  asked and was not. With `elicitation: false` it names the server instead —
+  "`imap-mcp` was started with the approval dialog switched off, so nobody was
+  asked."
+
+  That is also the first use of `options.server`. It has been declared and
+  documented as "for the warning line of the fallback text" since 0.1.0 and was
+  never read; every consumer passed it believing it did something.
+
 ## [0.6.0] - 2026-09-01
 
 ### Removed

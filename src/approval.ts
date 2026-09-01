@@ -92,8 +92,24 @@ export type ApprovalOutcome =
   | { decision: 'pending'; result: CallToolResult | InputRequiredResult };
 
 export interface ApprovalOptions {
-  /** The server's own name, for the warning line of the fallback text. */
+  /**
+   * The server's own name. Named in the fallback text when the dialog was
+   * switched off, so a log or a transcript says *which* server did not ask.
+   */
   server: string;
+  /**
+   * Whether a client that could be asked is asked at all. Default `true`.
+   *
+   * `false` is not "no confirmation": it takes the same path a client that
+   * cannot show a dialog takes, which is the two-call token. There is no
+   * setting in this library that lets a guarded call through unannounced.
+   *
+   * It exists for the deployments where a dialog is the wrong shape rather
+   * than an unwanted one — a scheduled job, a test harness, a client whose
+   * dialog interrupts something. The fallback text says which of the two
+   * reasons applies, because "this client cannot ask" would be a lie here.
+   */
+  elicitation?: boolean;
   /**
    * How long a half-answered call stays resumable. Default 15 minutes, which is
    * how long a person plausibly takes to read a dialog and come back.
@@ -138,6 +154,7 @@ export interface Approver {
  * that is the only reason this is a factory rather than a free function.
  */
 export function createApproval(options: ApprovalOptions): Approver {
+  const elicitation = options.elicitation ?? true;
   /**
    * Integrity for the state that rides through the client and comes back.
    *
@@ -229,7 +246,7 @@ export function createApproval(options: ApprovalOptions): Approver {
       if (answer === 'approved') return { decision: 'approved' };
       if (answer === 'declined') return { decision: 'declined' };
 
-      if (canAsk(server, ctx)) {
+      if (elicitation && canAsk(server, ctx)) {
         return { decision: 'pending', result: await ask(ctx, request) };
       }
 
@@ -249,11 +266,21 @@ export function createApproval(options: ApprovalOptions): Approver {
         };
       }
 
+      // Two different reasons end up on the same path, and the sentence has to
+      // say which one it was. "This client cannot ask the user directly" is
+      // simply false when the operator switched the dialog off — the client
+      // could have been asked and was not, which is a fact about the
+      // deployment that only the server's own name places.
       const note =
         request.fallbackNote ??
-        'Note: this client cannot ask the user directly, so this check only ' +
-          'proves the call was made twice with the same arguments. A human ' +
-          'should read the lines above before you continue.';
+        (elicitation
+          ? 'Note: this client cannot ask the user directly, so this check ' +
+            'only proves the call was made twice with the same arguments. A ' +
+            'human should read the lines above before you continue.'
+          : `Note: ${options.server} was started with the approval dialog ` +
+            'switched off, so nobody was asked. This check only proves the ' +
+            'call was made twice with the same arguments. A human should read ' +
+            'the lines above before you continue.');
       return {
         decision: 'pending',
         result: {

@@ -107,6 +107,28 @@ Both mechanisms hang off it. Without it, an approval for `["a"]` would also
 execute `["a", "b"]`: the model chooses the second list, and only the operation
 name would ever have been checked.
 
+### Switching the dialog off, without switching the guard off
+
+```ts
+createApproval({ server: 'imap-mcp', elicitation: false });
+```
+
+Some deployments do not want a dialog: a scheduled job, a test harness, a client
+whose dialog interrupts something else. `elicitation: false` does **not** let
+guarded calls through — it takes the same path a client that cannot show a dialog
+takes, which is the two-call token. There is no setting here that makes a guarded
+call go unannounced.
+
+The fallback sentence changes with it, because the usual one would be a lie:
+
+|                            | what the fallback says                                                              |
+| -------------------------- | ----------------------------------------------------------------------------------- |
+| the client cannot be asked | "this client cannot ask the user directly"                                          |
+| `elicitation: false`       | "`<server>` was started with the approval dialog switched off, so nobody was asked" |
+
+That is what `server` is for. Whoever reads the transcript should not be sent to
+debug a client that is working fine.
+
 ## The answer is untrusted input
 
 On `2026-07-28` the person's reply comes back as ordinary request content on the
