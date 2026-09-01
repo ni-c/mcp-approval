@@ -104,9 +104,6 @@ export function buildServer(options: {
           consequence: 'It leaves the active list.',
           resourceKey: `archive:${id}`,
           token: confirm_token,
-          // Spelled the way a server with a camelCase schema would, so the
-          // fallback sentence has to follow it rather than say confirm_token.
-          tokenParam: 'confirmToken',
         }
       );
       if (outcome.decision === 'rejected') {
@@ -237,10 +234,7 @@ export const textOf = (view: View): string =>
     .join('\n');
 
 export const tokenOf = (view: View): string => {
-  // Either spelling: the two tools here declare the parameter differently on
-  // purpose, so that the prompt is forced to follow the schema rather than a
-  // constant.
-  const match = /confirm_?[Tt]oken="([0-9a-f]+)"/.exec(textOf(view));
+  const match = /confirm_token="([0-9a-f]+)"/.exec(textOf(view));
   if (!match) throw new Error(`no token in: ${textOf(view).slice(0, 200)}`);
   return match[1] as string;
 };

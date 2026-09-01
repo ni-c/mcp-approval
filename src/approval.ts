@@ -60,8 +60,6 @@ export interface ApprovalRequest {
   hint?: string;
   /** Names the tool in the fallback text. */
   toolName?: string;
-  /** The parameter the token goes in, for the fallback text. Default `confirm_token`. */
-  tokenParam?: string;
   /** Appended to the fallback text, for a server that wants to say more. */
   fallbackNote?: string;
 }
@@ -273,9 +271,6 @@ export function createApproval(options: ApprovalOptions): Approver {
                 ...(request.toolName === undefined
                   ? {}
                   : { toolName: request.toolName }),
-                ...(request.tokenParam === undefined
-                  ? {}
-                  : { tokenParam: request.tokenParam }),
               })}\n\n${note}`,
             },
           ],

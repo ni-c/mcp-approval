@@ -159,15 +159,6 @@ export interface ConfirmationPromptOptions {
   details?: readonly ConfirmationDetail[];
   /** Names the tool to call again. Omitted gives the generic "call this tool again". */
   toolName?: string;
-  /**
-   * The parameter the token goes in. Default `confirm_token`.
-   *
-   * This sentence tells a model what to send, so it has to name the parameter
-   * the server's schema actually declares. Most of them are `confirm_token`;
-   * one that spells it `confirmToken` would otherwise be told to pass an
-   * argument it rejects.
-   */
-  tokenParam?: string;
 }
 
 /**
@@ -188,7 +179,7 @@ export function confirmationPrompt(options: ConfirmationPromptOptions): string {
   return (
     `This will ${what}. ${consequence}` +
     `${renderDetails(options.details ?? [])}\n\n` +
-    `To proceed, ${again} plus ${options.tokenParam ?? 'confirm_token'}="${token}".\n` +
+    `To proceed, ${again} plus confirm_token="${token}".\n` +
     `The token is valid for ${ttlMinutes} minutes and can be used once.`
   );
 }

@@ -252,17 +252,6 @@ describe('a client that cannot be asked at all', () => {
     await client.close();
   });
 
-  it('names the parameter the server declares, not confirm_token', async () => {
-    // archive_thing spells it `confirmToken`. Telling a model to send
-    // `confirm_token` would be telling it to send an argument that is rejected.
-    const built = build();
-    const client = await connectLegacy(built);
-    const first = await client.call({ id: 'x' }, 'archive_thing');
-    expect(textOf(first)).toContain('confirmToken="');
-    expect(textOf(first)).not.toContain('confirm_token=');
-    await client.close();
-  });
-
   it('falls back with generic wording when the caller named no tool', async () => {
     const built = build();
     const client = await connectLegacy(built);

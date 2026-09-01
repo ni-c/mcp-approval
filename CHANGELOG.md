@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- #region changelog -->
 
+## [0.6.0] - 2026-09-01
+
+### Removed
+
+- `tokenParam`, added in 0.5.0 and 0.5.1. It let a server whose schema spells
+  the parameter differently — `confirmToken` rather than `confirm_token` — have
+  the prompt follow it. That is the wrong direction: this library defines the
+  convention, and an option that makes a deviation comfortable is how the
+  deviation survives. The one server that had it was standardised instead.
+
+  A server whose parameter is not `confirm_token` should rename it. The prompt
+  is a sentence a model acts on, and a fleet that words it identically is worth
+  more than a knob.
+
 ## [0.5.1] - 2026-09-01
 
 ### Fixed
