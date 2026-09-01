@@ -1,0 +1,62 @@
+{
+  "name": "mcp-approval",
+  "version": "0.1.0",
+  "description": "Ask a human before your MCP tool does something irreversible — elicitation on both protocol revisions, with a two-call confirmation token for clients that cannot be asked",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "elicitation",
+    "human-in-the-loop",
+    "confirmation"
+  ],
+  "license": "MIT",
+  "author": "Willi Thiel",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ni-c/mcp-approval.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ni-c/mcp-approval/issues"
+  },
+  "homepage": "https://github.com/ni-c/mcp-approval#readme",
+  "funding": "https://github.com/sponsors/ni-c",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "lint": "oxlint --deny-warnings && prettier --check .",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/server": "^2.0.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/core": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "@types/node": "^26.2.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "oxlint": "^1.80.0",
+    "prettier": "^3.6.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10",
+    "zod": "^4.4.3"
+  }
+}
