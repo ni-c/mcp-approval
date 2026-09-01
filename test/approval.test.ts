@@ -275,12 +275,13 @@ describe('a client that cannot be asked at all', () => {
       ids: ['a', 'b'],
       confirm_token: tokenOf(first),
     });
-    expect(textOf(second)).toContain('confirm_token=');
+    expect(second.isError).toBe(true);
+    expect(textOf(second)).toContain('issued for different arguments');
     expect(built.deleted).toHaveLength(0);
     await client.close();
   });
 
-  it('says a supplied token was rejected, rather than just asking again', async () => {
+  it('refuses a supplied token with the reason, rather than asking again', async () => {
     // Both answers end in a new question, and the caller is entitled to know
     // which one it is: a rejected token means the call carried a confirmation
     // issued for something else — the case the resource key exists to catch.
@@ -293,10 +294,29 @@ describe('a client that cannot be asked at all', () => {
       ids: ['a', 'b'],
       confirm_token: tokenOf(first),
     });
-    expect(textOf(second)).toContain('that token was rejected');
+    expect(second.isError).toBe(true);
+    expect(textOf(second)).toContain('invalid, expired, or was issued for');
+    expect(textOf(second)).toContain('delete_things again without a token');
 
+    // The ordinary first call is still a question, not an error — which is the
+    // half that makes the distinction worth having.
     const fresh = await client.call({ ids: ['c'] });
-    expect(textOf(fresh)).not.toContain('that token was rejected');
+    expect(fresh.isError).toBeUndefined();
+    expect(textOf(fresh)).toContain('confirm_token=');
+    await client.close();
+  });
+
+  it('falls back to "this tool" in the refusal when no tool was named', async () => {
+    // The same generic wording the prompt uses. A caller that supplies no tool
+    // name gets a sentence that still reads, rather than "call undefined".
+    const built = build();
+    const client = await connectLegacy(built);
+    await client.call({ id: 'x' }, 'archive_thing');
+    const wrong = await client.call(
+      { id: 'y', confirm_token: 'deadbeef' },
+      'archive_thing'
+    );
+    expect(textOf(wrong)).toContain('Call this tool again without a token');
     await client.close();
   });
 
@@ -307,7 +327,8 @@ describe('a client that cannot be asked at all', () => {
     const token = tokenOf(first);
     await client.call({ ids: ['a'], confirm_token: token });
     const replay = await client.call({ ids: ['a'], confirm_token: token });
-    expect(textOf(replay)).toContain('confirm_token=');
+    expect(replay.isError).toBe(true);
+    expect(textOf(replay)).toContain('invalid, expired');
     expect(built.deleted).toEqual([['a']]);
     await client.close();
   });

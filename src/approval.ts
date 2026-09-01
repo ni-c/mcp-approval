@@ -75,22 +75,21 @@ export interface ApprovalRequest {
 export type ApprovalOutcome =
   | { decision: 'approved' }
   | { decision: 'declined' }
-  | {
-      decision: 'pending';
-      result: CallToolResult | InputRequiredResult;
-      /**
-       * True when a token was supplied on the fallback path and did not match.
-       *
-       * Worth distinguishing from "nobody has been asked yet", even though both
-       * end in another question: a rejected token means the call carried a
-       * confirmation that was issued for *something else*, which is the exact
-       * case the resource key exists to catch. Answering it with a fresh prompt
-       * and no explanation is self-healing in the innocent case (an expired
-       * token) and silent in the interesting one. A caller that wants to say so
-       * reads this; one that does not can ignore it and re-ask.
-       */
-      tokenRejected: boolean;
-    };
+  /**
+   * A token was supplied on the fallback path and did not match.
+   *
+   * Its own verdict rather than another question, because the two are not the
+   * same thing to say. A rejected token means the call carried a confirmation
+   * issued for *something else* — the exact case the resource key exists to
+   * catch — and answering it with a fresh prompt is self-healing when the token
+   * merely expired and silent when it is not.
+   *
+   * `reason` is the sentence to show. The caller still owns the error type: a
+   * server that maps thrown domain errors to tool results should raise its own
+   * with this text, which is why this is not a finished error result.
+   */
+  | { decision: 'rejected'; reason: string }
+  | { decision: 'pending'; result: CallToolResult | InputRequiredResult };
 
 export interface ApprovalOptions {
   /** The server's own name, for the warning line of the fallback text. */
@@ -231,17 +230,25 @@ export function createApproval(options: ApprovalOptions): Approver {
       if (answer === 'declined') return { decision: 'declined' };
 
       if (canAsk(server, ctx)) {
-        // The dialog path never sees a token, so nothing was rejected here.
-        return {
-          decision: 'pending',
-          result: await ask(ctx, request),
-          tokenRejected: false,
-        };
+        return { decision: 'pending', result: await ask(ctx, request) };
       }
 
       if (confirmations.consume(request.resourceKey, request.token)) {
         return { decision: 'approved' };
       }
+      // A token that was sent and did not match gets the reason, not a new
+      // prompt. `consume` has already run, so this cannot be reached by a
+      // token that was simply spent correctly.
+      if (request.token !== undefined) {
+        return {
+          decision: 'rejected',
+          reason:
+            'The confirmation token is invalid, expired, or was issued for ' +
+            `different arguments. Call ${request.toolName ?? 'this tool'} ` +
+            'again without a token to get a new one.',
+        };
+      }
+
       const note =
         request.fallbackNote ??
         'Note: this client cannot ask the user directly, so this check only ' +
@@ -249,7 +256,6 @@ export function createApproval(options: ApprovalOptions): Approver {
           'should read the lines above before you continue.';
       return {
         decision: 'pending',
-        tokenRejected: request.token !== undefined,
         result: {
           content: [
             {

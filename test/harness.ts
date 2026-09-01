@@ -18,11 +18,6 @@ import {
  * A server with one guarded tool, so both eras can be driven against the same
  * handler — which is the claim this library makes.
  */
-function textOfResult(result: unknown): string {
-  const content = (result as { content?: { text?: string }[] }).content ?? [];
-  return content.map((part) => part.text ?? '').join('');
-}
-
 export function buildServer(options: {
   store: ConfirmationStore;
   key?: Uint8Array;
@@ -72,22 +67,15 @@ export function buildServer(options: {
           isError: true,
         };
       }
-      if (outcome.decision === 'pending') {
-        // Surfaced so a test can see the distinction the caller is offered:
-        // "you sent a token and it was for something else" against "nobody has
-        // been asked yet". Both end in another question; only one of them is
-        // the case the resource key exists to catch.
-        return outcome.tokenRejected
-          ? {
-              content: [
-                {
-                  type: 'text',
-                  text: `that token was rejected\n${textOfResult(outcome.result)}`,
-                },
-              ],
-            }
-          : outcome.result;
+      // A rejected token is its own verdict, and the library supplies the
+      // sentence; what stays here is the error type, which is this server's.
+      if (outcome.decision === 'rejected') {
+        return {
+          content: [{ type: 'text', text: outcome.reason }],
+          isError: true,
+        };
       }
+      if (outcome.decision === 'pending') return outcome.result;
       deleted.push(ids);
       return { content: [{ type: 'text', text: `deleted ${ids.join(', ')}` }] };
     }
@@ -118,6 +106,12 @@ export function buildServer(options: {
           token: confirm_token,
         }
       );
+      if (outcome.decision === 'rejected') {
+        return {
+          content: [{ type: 'text', text: outcome.reason }],
+          isError: true,
+        };
+      }
       if (outcome.decision === 'declined') {
         return { content: [{ type: 'text', text: 'declined' }], isError: true };
       }

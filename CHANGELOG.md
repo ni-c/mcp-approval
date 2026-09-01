@@ -7,21 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- #region changelog -->
 
+## [0.4.0] - 2026-09-01
+
+### Added
+
+- A fourth verdict, `{ decision: 'rejected', reason }`, replacing the
+  `tokenRejected` flag that 0.3.0 put on `pending`. A token that was supplied
+  and did not match is not another question — nobody is being asked anything,
+  the call is being refused — so it reads better as its own verdict, and the
+  `else` branch of a consumer that only handles three cases now cannot quietly
+  swallow it.
+
+  The library supplies the sentence, so every server refuses in the same words;
+  the error _type_ stays with the caller, the same split `declined` already
+  uses. `reason` names the tool where `toolName` was given and says "this tool"
+  where it was not.
+
+### Removed
+
+- `tokenRejected` on the `pending` outcome, added in 0.3.0 and superseded above
+  before anything depended on it.
+
 ## [0.3.0] - 2026-09-01
 
 ### Added
 
-- `ApprovalOutcome`'s `pending` case carries `tokenRejected`. It is true when a
-  token was supplied on the fallback path and did not match, and false when
-  nobody had been asked yet — two situations that both end in another question
-  and are worth telling apart. A rejected token means the call carried a
-  confirmation issued for _something else_, which is the case the resource key
-  exists to catch; answering it with a fresh prompt and no explanation is
-  self-healing when the token merely expired and silent when it is not.
+- A fourth verdict, `{ decision: 'rejected', reason }`, for a token that was
+  supplied on the fallback path and did not match. Previously that answered
+  with a fresh prompt, which is self-healing when the token merely expired and
+  silent when it is not — a rejected token means the call carried a
+  confirmation issued for _something else_, which is the exact case the
+  resource key exists to catch.
 
-  A caller that does not care can keep ignoring it and re-ask. Found by
-  migrating a server whose own guard drew this distinction and would have lost
-  it.
+  The library supplies the sentence so every server says the same thing; the
+  caller still owns the error type, which is why this is a verdict rather than
+  a finished error result. Found by migrating a server whose own guard drew
+  this distinction and would have lost it.
+
+  **Handle it**: a consumer that only checks `approved`/`declined`/`pending`
+  will fall through to whatever its `else` does. `reason` names the tool when
+  `toolName` was given and says "this tool" when it was not.
 
 ## [0.2.0] - 2026-09-01
 
