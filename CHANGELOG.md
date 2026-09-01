@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- #region changelog -->
 
+## [0.5.1] - 2026-09-01
+
+### Fixed
+
+- Nothing in the library: 0.5.0 was tagged but never published, because its
+  release failed on the coverage gate — the branch added below was reachable
+  only through `confirmationPrompt` and not through `requestApproval`. There is
+  a test for it now. Use this version; 0.5.0 does not exist on npm.
+
 ## [0.5.0] - 2026-09-01
 
 ### Added
