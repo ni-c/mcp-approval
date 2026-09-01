@@ -184,6 +184,20 @@ describe('the prompt', () => {
     expect(text.length).toBeLessThan(300);
   });
 
+  it('names the parameter the server actually declares', () => {
+    // The sentence tells a model what to send. A server whose schema spells it
+    // `confirmToken` would otherwise be told to pass `confirm_token`, which it
+    // rejects — a prompt that cannot be acted on is worse than none.
+    expect(
+      confirmationPrompt({
+        what: 'delete it',
+        token: 'abc',
+        ttlMinutes: 5,
+        tokenParam: 'confirmToken',
+      })
+    ).toContain('confirmToken="abc"');
+  });
+
   it('renders nothing at all for an empty detail list', () => {
     expect(renderDetails([])).toBe('');
   });
