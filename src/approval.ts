@@ -75,7 +75,22 @@ export interface ApprovalRequest {
 export type ApprovalOutcome =
   | { decision: 'approved' }
   | { decision: 'declined' }
-  | { decision: 'pending'; result: CallToolResult | InputRequiredResult };
+  | {
+      decision: 'pending';
+      result: CallToolResult | InputRequiredResult;
+      /**
+       * True when a token was supplied on the fallback path and did not match.
+       *
+       * Worth distinguishing from "nobody has been asked yet", even though both
+       * end in another question: a rejected token means the call carried a
+       * confirmation that was issued for *something else*, which is the exact
+       * case the resource key exists to catch. Answering it with a fresh prompt
+       * and no explanation is self-healing in the innocent case (an expired
+       * token) and silent in the interesting one. A caller that wants to say so
+       * reads this; one that does not can ignore it and re-ask.
+       */
+      tokenRejected: boolean;
+    };
 
 export interface ApprovalOptions {
   /** The server's own name, for the warning line of the fallback text. */
@@ -216,7 +231,12 @@ export function createApproval(options: ApprovalOptions): Approver {
       if (answer === 'declined') return { decision: 'declined' };
 
       if (canAsk(server, ctx)) {
-        return { decision: 'pending', result: await ask(ctx, request) };
+        // The dialog path never sees a token, so nothing was rejected here.
+        return {
+          decision: 'pending',
+          result: await ask(ctx, request),
+          tokenRejected: false,
+        };
       }
 
       if (confirmations.consume(request.resourceKey, request.token)) {
@@ -229,6 +249,7 @@ export function createApproval(options: ApprovalOptions): Approver {
           'should read the lines above before you continue.';
       return {
         decision: 'pending',
+        tokenRejected: request.token !== undefined,
         result: {
           content: [
             {

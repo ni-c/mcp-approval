@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- #region changelog -->
 
+## [0.3.0] - 2026-09-01
+
+### Added
+
+- `ApprovalOutcome`'s `pending` case carries `tokenRejected`. It is true when a
+  token was supplied on the fallback path and did not match, and false when
+  nobody had been asked yet — two situations that both end in another question
+  and are worth telling apart. A rejected token means the call carried a
+  confirmation issued for _something else_, which is the case the resource key
+  exists to catch; answering it with a fresh prompt and no explanation is
+  self-healing when the token merely expired and silent when it is not.
+
+  A caller that does not care can keep ignoring it and re-ask. Found by
+  migrating a server whose own guard drew this distinction and would have lost
+  it.
+
 ## [0.2.0] - 2026-09-01
 
 ### Fixed

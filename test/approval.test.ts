@@ -280,6 +280,26 @@ describe('a client that cannot be asked at all', () => {
     await client.close();
   });
 
+  it('says a supplied token was rejected, rather than just asking again', async () => {
+    // Both answers end in a new question, and the caller is entitled to know
+    // which one it is: a rejected token means the call carried a confirmation
+    // issued for something else — the case the resource key exists to catch.
+    // Answering it with a fresh prompt and nothing else is self-healing when
+    // the token merely expired, and silent when it is not.
+    const built = build();
+    const client = await connectLegacy(built);
+    const first = await client.call({ ids: ['a'] });
+    const second = await client.call({
+      ids: ['a', 'b'],
+      confirm_token: tokenOf(first),
+    });
+    expect(textOf(second)).toContain('that token was rejected');
+
+    const fresh = await client.call({ ids: ['c'] });
+    expect(textOf(fresh)).not.toContain('that token was rejected');
+    await client.close();
+  });
+
   it('spends the token, so a replay asks again', async () => {
     const built = build();
     const client = await connectLegacy(built);
