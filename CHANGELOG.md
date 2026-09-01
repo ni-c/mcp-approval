@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- #region changelog -->
 
+## [0.2.0] - 2026-09-01
+
+### Fixed
+
+- `renderDetails` now flattens each caller-chosen value to one line and caps it
+  at 200 characters. Giving the value its own labelled line was never the whole
+  defence: a value containing a newline can begin a _further_ line, and what it
+  writes there reads like a fresh instruction underneath the question — at which
+  point the question is no longer what anybody is answering. A value long enough
+  to push the question out of view does the same thing by volume.
+
+  Found while migrating a server that had this protection in its own copy and
+  would have lost it. Its reasoning is now the library's.
+
 ## [0.1.0] - 2026-09-01
 
 First release. Extracted from the confirmation-token store that had been copied

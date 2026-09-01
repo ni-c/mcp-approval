@@ -1,6 +1,6 @@
 {
   "name": "mcp-approval",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Ask a human before your MCP tool does something irreversible — elicitation on both protocol revisions, with a two-call confirmation token for clients that cannot be asked",
   "keywords": [
     "mcp",

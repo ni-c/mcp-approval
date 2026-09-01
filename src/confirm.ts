@@ -117,11 +117,32 @@ export interface ConfirmationDetail {
   value: string;
 }
 
+/** How much of a caller-chosen value is shown before it is cut. */
+const MAX_DETAIL_LENGTH = 200;
+
+/**
+ * Flattens a caller-chosen value to one harmless line.
+ *
+ * The newline is the whole trick, and giving the value its own line does not
+ * defend against it: a value that can begin a *further* line writes something
+ * that reads like a fresh instruction under the question, and the question
+ * stops being what is being answered. The cap is the other half — a value long
+ * enough to push the question out of view answers it by default.
+ */
+function flatten(value: string): string {
+  const flat = value.replace(/\s+/g, ' ').trim();
+  return flat.length > MAX_DETAIL_LENGTH
+    ? `${flat.slice(0, MAX_DETAIL_LENGTH)}… (truncated)`
+    : flat;
+}
+
 export function renderDetails(details: readonly ConfirmationDetail[]): string {
   if (details.length === 0) return '';
   return (
     '\n\nValues below are supplied by the caller, not by this server:\n' +
-    details.map((detail) => `  ${detail.label}: ${detail.value}`).join('\n')
+    details
+      .map((detail) => `  ${flatten(detail.label)}: ${flatten(detail.value)}`)
+      .join('\n')
   );
 }
 
