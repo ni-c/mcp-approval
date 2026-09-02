@@ -47,6 +47,33 @@ describe('on the 2026-07-28 revision', () => {
     await client.close();
   });
 
+  it('proves binding but not freshness: a state can be presented twice', async () => {
+    // Pinned deliberately, because the token path has the opposite property
+    // ("spends the token, so a replay asks again") and the difference between
+    // the two used to be an accident nobody had written down.
+    //
+    // The state is a proof this server hands out, not a secret it keeps: no
+    // nonce, nothing spent on verify, a stateless codec. So the same answer
+    // replays until it expires. That is not a way past the person — whoever can
+    // replay it received the input_required, so they are the client, and a
+    // compromised client is already out of scope. What it does mean is that
+    // at-most-once is the *server's* job for anything irreversible, which is
+    // what SECURITY.md now says.
+    const built = build();
+    const client = await connectModern(built);
+
+    const asked = await client.call({ ids: ['a'] });
+    const answer = {
+      inputResponses: ACCEPTED,
+      requestState: asked.requestState,
+    };
+
+    await client.call({ ids: ['a'] }, answer);
+    await client.call({ ids: ['a'] }, answer);
+    expect(built.deleted).toEqual([['a'], ['a']]);
+    await client.close();
+  });
+
   it('carries the caller-chosen values on their own lines', async () => {
     const built = build();
     const client = await connectModern(built);

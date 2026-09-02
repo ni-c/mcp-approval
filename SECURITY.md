@@ -46,3 +46,23 @@ that genuinely cannot be asked, and your documentation should say so plainly.
   Keep anything your server fetched from elsewhere out of the first two, and put
   caller-chosen values in `details`, where they are rendered under a disclaimer
   rather than inside the server's own sentence.
+- **Replay of a sealed state.** The state proves _binding_ — that this server
+  asked about this operation, for this caller — and it does not prove
+  _freshness_. It carries no nonce, nothing is spent when it is verified, and
+  the codec is stateless by design, so the same `requestState` and answer can be
+  submitted again until it expires. The two-call token is the opposite: it is a
+  secret the server keeps and `consume` deletes on use.
+
+  That asymmetry is deliberate and it is not a way around the person. Whoever
+  can replay a state received the `input_required` themselves, so they are the
+  client — and a compromised client is already the first item on this list. What
+  it does mean is that **at-most-once is not guaranteed for the dialog path**: a
+  retried leg, a gateway that re-sends, a host that reconnects mid-flow can run
+  an approved operation a second time without asking again.
+
+  For anything irreversible or non-idempotent — sending mail, issuing a
+  credential, triggering a run — make the operation itself idempotent, or check
+  before acting. That is the server's job and it is where the knowledge lives;
+  a redeemed-state set here would be per-process, and would therefore fail
+  _open_ on a restart or a second process, in exactly the deployment that
+  needed it.

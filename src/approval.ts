@@ -111,8 +111,16 @@ export interface ApprovalOptions {
    */
   elicitation?: boolean;
   /**
-   * How long a half-answered call stays resumable. Default 15 minutes, which is
-   * how long a person plausibly takes to read a dialog and come back.
+   * How long a half-answered *dialog* stays resumable. Default 15 minutes,
+   * which is how long a person plausibly takes to read one and come back.
+   *
+   * This is the sealed state's lifetime and nothing else. The two-call token
+   * has its own, set on the {@link ConfirmationStore} the server constructs and
+   * passes in — this library never sees that constructor, so it cannot follow
+   * it. Lower this expecting both to move and the fallback path keeps the
+   * store's default of five minutes, which is the path that matters behind a
+   * stateless gateway. Set them together, or read the prompt: it prints the
+   * store's figure, and that one is the truth about the token.
    */
   ttlSeconds?: number;
   /**
