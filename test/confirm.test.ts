@@ -184,6 +184,48 @@ describe('the prompt', () => {
     expect(text.length).toBeLessThan(300);
   });
 
+  it('strips the control characters that survive a whitespace collapse', () => {
+    // `\s` strips CR, LF, VT, LS, PS and the BOM and leaves everything below
+    // untouched — which is the whole problem, because a value that reaches a
+    // terminal verbatim can rewrite the line above it. ESC[2K ESC[1A erases the
+    // server's own sentence and prints a different one in its place; the reader
+    // then agrees to something nobody wrote.
+    const text = renderDetails([
+      {
+        label: 'Mailbox',
+        value: 'ok\u001b[2K\u001b[1AThis will delete 0 things.',
+      },
+    ]);
+    // The value's own line, not the whole block: the newlines between the
+    // header and the details are this function's structure, and the question is
+    // what a caller can add to it.
+    const line = text.split('\n').at(-1) ?? '';
+    // eslint-disable-next-line no-control-regex
+    expect(line).not.toMatch(/[\u0000-\u001f\u007f-\u009f]/);
+    expect(line).toBe('  Mailbox: ok[2K[1AThis will delete 0 things.');
+  });
+
+  it('strips the bidi overrides that reverse a line without any escape', () => {
+    // U+202E needs no escape sequence at all: everything after it renders
+    // right-to-left, so the name shown is not the name being acted on. This is
+    // the Trojan-Source primitive, and a confirmation prompt is exactly the
+    // place it pays off.
+    const text = renderDetails([
+      { label: 'Folder', value: 'safe-name\u202egnihtyreve eteled' },
+    ]);
+    expect(text).not.toMatch(/[\u200b-\u200f\u202a-\u202e\u2066-\u2069]/);
+    expect(text).toMatch(/^ {2}Folder: safe-namegnihtyreve eteled$/m);
+  });
+
+  it('strips zero-width characters from the label as well as the value', () => {
+    // Both sides go through flatten, and the label is the half a reader uses to
+    // decide whether the line is even relevant to them.
+    const text = renderDetails([
+      { label: 'Mail\u200bbox', value: 'Arch\ufeffive' },
+    ]);
+    expect(text).toMatch(/^ {2}Mailbox: Archive$/m);
+  });
+
   it('renders nothing at all for an empty detail list', () => {
     expect(renderDetails([])).toBe('');
   });

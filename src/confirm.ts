@@ -121,16 +121,39 @@ export interface ConfirmationDetail {
 const MAX_DETAIL_LENGTH = 200;
 
 /**
+ * C0 and C1 controls, DEL, and the invisible and direction-changing formatting
+ * characters.
+ *
+ * `\s` covers less than it looks: it strips CR, LF, VT, LS, PS and the BOM, and
+ * leaves ESC, BEL, NEL, the zero-width set and every BiDi override untouched.
+ * Those are not decoration in a sentence somebody is about to agree to. `ESC[1A`
+ * is a strictly stronger newline than `\n` — it moves the cursor up and
+ * overwrites what is already there — and U+202E reverses the rest of the line
+ * without any escape sequence at all, which is the Trojan-Source primitive.
+ * Either one lets a caller-supplied value rewrite the server's own description
+ * of what is about to happen.
+ *
+ * The same class, minus the parts `\s` already handles, is what the servers in
+ * this family strip from anything they show a model. This is the one place it
+ * mattered most and the one place it was missing.
+ */
+const UNSAFE_CHARS =
+  // eslint-disable-next-line no-control-regex
+  /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u00ad\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g;
+
+/**
  * Flattens a caller-chosen value to one harmless line.
  *
  * The newline is the whole trick, and giving the value its own line does not
  * defend against it: a value that can begin a *further* line writes something
  * that reads like a fresh instruction under the question, and the question
  * stops being what is being answered. The cap is the other half — a value long
- * enough to push the question out of view answers it by default.
+ * enough to push the question out of view answers it by default. Removing
+ * {@link UNSAFE_CHARS} is the third: a line that cannot be overwritten or
+ * reversed after it is printed.
  */
 function flatten(value: string): string {
-  const flat = value.replace(/\s+/g, ' ').trim();
+  const flat = value.replace(UNSAFE_CHARS, '').replace(/\s+/g, ' ').trim();
   return flat.length > MAX_DETAIL_LENGTH
     ? `${flat.slice(0, MAX_DETAIL_LENGTH)}… (truncated)`
     : flat;
