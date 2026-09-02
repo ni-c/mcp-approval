@@ -129,6 +129,22 @@ The fallback sentence changes with it, because the usual one would be a lie:
 That is what `server` is for. Whoever reads the transcript should not be sent to
 debug a client that is working fine.
 
+### The fallback prompt is an error result
+
+`decision: 'pending'` on the token path hands back a result with `isError: true`.
+The operation was asked for and did not happen, which is what `isError` says —
+and the text carries the token and how to use it, so nothing is lost.
+
+It is also what keeps the fallback working on a tool that declares an
+`outputSchema`. The SDK requires such a tool to answer with `structuredContent`
+and validates it, skipping only errors and `input_required`. An unmarked prompt
+is rejected as an invalid result, and the caller is told the server is broken
+instead of being handed the token it asked for.
+
+This is the one result this library builds, so it states its own type. `declined`
+and `rejected` are sentences for a result the **server** builds, and the error
+type stays there.
+
 ## The answer is untrusted input
 
 On `2026-07-28` the person's reply comes back as ordinary request content on the

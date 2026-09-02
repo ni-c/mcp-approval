@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- #region changelog -->
 
+## [Unreleased]
+
+### Changed
+
+- The fallback prompt returned with `decision: 'pending'` now carries
+  `isError: true`. The operation was asked for and did not happen, which is what
+  `isError` says, and the text still carries the token and how to use it.
+
+  It is also what keeps the token path working on a tool that declares an
+  `outputSchema`: the SDK requires such a tool to answer with
+  `structuredContent` and validates it, skipping only errors and
+  `input_required`. An unmarked prompt was rejected as an invalid result, so the
+  caller was told the server was broken instead of being handed the token it
+  asked for.
+
+  A caller that distinguished the prompt from a refused token by `isError`
+  alone now has to read the text, which is where the difference was always
+  stated. `declined` and `rejected` are unaffected — those are sentences for a
+  result the server builds, and the error type stays there.
+
 ## [0.7.1] - 2026-09-02
 
 ### Fixed

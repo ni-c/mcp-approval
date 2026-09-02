@@ -273,6 +273,11 @@ describe('a client that cannot be asked at all', () => {
     expect(textOf(first)).toContain('confirm_token=');
     expect(textOf(first)).toContain('cannot ask the user directly');
     expect(built.deleted).toHaveLength(0);
+    // The prompt is an error result: the deletion was asked for and did not
+    // happen. It is also what lets a tool with an `outputSchema` take this
+    // path at all — the SDK skips output validation for an error and rejects
+    // an unmarked result that carries no `structuredContent`.
+    expect(first.isError).toBe(true);
 
     const done = await client.call({
       ids: ['a'],
@@ -280,6 +285,7 @@ describe('a client that cannot be asked at all', () => {
     });
     expect(built.deleted).toEqual([['a']]);
     expect(textOf(done)).toContain('deleted a');
+    expect(done.isError).toBeUndefined();
     await client.close();
   });
 
@@ -329,11 +335,13 @@ describe('a client that cannot be asked at all', () => {
     expect(textOf(second)).toContain('invalid, expired, or was issued for');
     expect(textOf(second)).toContain('delete_things again without a token');
 
-    // The ordinary first call is still a question, not an error — which is the
-    // half that makes the distinction worth having.
+    // The ordinary first call carries a token and says how to use it, which is
+    // the half that makes the distinction worth having. Both results are
+    // `isError` — neither call did what was asked — so the distinction lives in
+    // the text, which is where a caller reads it anyway.
     const fresh = await client.call({ ids: ['c'] });
-    expect(fresh.isError).toBeUndefined();
     expect(textOf(fresh)).toContain('confirm_token=');
+    expect(textOf(fresh)).not.toContain('invalid, expired');
     await client.close();
   });
 
