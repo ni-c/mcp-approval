@@ -292,6 +292,22 @@ export function createApproval(options: ApprovalOptions): Approver {
       return {
         decision: 'pending',
         result: {
+          // An error result, and not merely for tidiness: the operation was
+          // asked for and did not happen, which is what `isError` says.
+          //
+          // It is also what keeps the fallback path working on a tool that
+          // declares an `outputSchema`. The SDK requires such a tool to answer
+          // with `structuredContent` and validates it, skipping only errors and
+          // `input_required` — so an unmarked prompt is rejected as an invalid
+          // result and the caller is told the server broke, rather than being
+          // handed the token it asked for. Every guarded tool in this family
+          // hits that, which is why the mark belongs here rather than in
+          // seventeen call sites that each have to remember it.
+          //
+          // Unlike `declined` and `rejected`, whose error type stays with the
+          // caller: those are sentences this library supplies for a result the
+          // server builds. This is a result the library builds.
+          isError: true,
           content: [
             {
               type: 'text',
