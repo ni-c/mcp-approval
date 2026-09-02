@@ -48,6 +48,13 @@ export class ConfirmationStore {
       }
     }
     const token = randomBytes(16).toString('hex');
+    // Deleted before it is set, so re-issuing moves the entry to the end.
+    // `Map.set` on an existing key keeps its original position, so without this
+    // a token re-issued below the cap keeps the place of the one it replaced —
+    // and the next overflow evicts it as "oldest" while ninety-eight genuinely
+    // older entries survive. Fail-closed either way (the user is told to
+    // confirm again), but the eviction should mean what its comment says.
+    this.pending.delete(resource);
     this.pending.set(resource, { token, expiresAt: now + this.ttlMs });
     return token;
   }

@@ -81,6 +81,19 @@ describe('the confirmation token', () => {
     expect(store.consume('delete:fresh', token)).toBe(true);
   });
 
+  it('evicts by age, counting a re-issue as making an entry young again', () => {
+    // Map.set on an existing key keeps its original insertion position, so a
+    // re-issued token used to keep the place of the one it replaced — and then
+    // be evicted as "oldest" while genuinely older entries survived. The entry
+    // re-issued here is the very first one, so it is exactly the one the old
+    // behaviour would have dropped.
+    const store = new ConfirmationStore();
+    for (let i = 0; i < 100; i += 1) store.issue(`old:${i}`);
+    const renewed = store.issue('old:0');
+    store.issue('overflow');
+    expect(store.consume('old:0', renewed)).toBe(true);
+  });
+
   it('sweeps expired entries before evicting a live one', () => {
     // Eviction is a last resort. A map full of expired tokens must not cost a
     // live confirmation somebody is about to use.
