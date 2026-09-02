@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- #region changelog -->
 
+## [0.7.1] - 2026-09-02
+
+### Fixed
+
+- `flatten` now removes C0/C1 controls, DEL, and the invisible and
+  direction-changing formatting characters before collapsing whitespace.
+  JavaScript's `\s` strips CR, LF, VT, LS, PS and the BOM and leaves ESC, BEL,
+  NEL, the zero-width set and every BiDi override untouched — so a
+  caller-supplied `details` value could still rewrite the sentence above it.
+  `ESC[2K ESC[1A` erases the server's own description and prints a different one
+  in its place; `U+202E` reverses the rest of the line with no escape sequence
+  at all. The class is the one already used in calibreweb, imap, wikijs,
+  woodpecker and mcp-hub; this was the one place in the family without it, and
+  the one where it mattered most.
+
+- `ConfirmationStore.issue` deletes before it sets, so a re-issued token moves
+  to the end of the map. `Map.set` on an existing key keeps its original
+  position, so a token re-issued below the cap kept the place of the one it
+  replaced and was then evicted as "oldest" while genuinely older entries
+  survived. Fail-closed in every case — the caller is asked to confirm again —
+  but the eviction now means what its comment says.
+
+### Changed
+
+- `SECURITY.md` names a fourth thing this library does not defend against: the
+  sealed state proves **binding**, not **freshness**. It carries no nonce,
+  nothing is spent when it is verified, and the codec is stateless by design, so
+  the same `requestState` and answer can be submitted again until they expire.
+  The two-call token is the opposite and always was — that asymmetry is now
+  written down and pinned by a test on both sides.
+
+  It is not a way around the person: whoever can replay a state received the
+  `input_required` and is therefore the client, which is already the first item
+  on that list. It does mean **at-most-once is not guaranteed on the dialog
+  path**, so anything irreversible or non-idempotent has to be made idempotent
+  by the server. A redeemed-state set here would be per-process and would fail
+  _open_ on a restart or a second process — exactly where it would have been
+  needed.
+
+- `ttlSeconds` is documented as what it is: the lifetime of the sealed state,
+  not of the two-call token. The token's lifetime lives on the
+  `ConfirmationStore` the server constructs and passes in, which this library
+  never sees. Lowering `ttlSeconds` and expecting both to move left the fallback
+  at the store's five-minute default — on the path that runs behind a stateless
+  gateway.
+
 ## [0.7.0] - 2026-09-01
 
 ### Added
