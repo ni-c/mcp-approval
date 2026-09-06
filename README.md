@@ -172,6 +172,14 @@ session, so the process _is_ the flow — when it ends there is nothing
 half-finished left to resume. Pass your own `key` only if more than one process
 may serve the two halves of one flow.
 
+The seal proves binding, not freshness, so each state also carries a nonce that
+is **spent the first time an answer arrives with it** — accepted or declined.
+The same state presented again is treated as no answer at all and produces a
+fresh question, exactly like the token path spends its token. The record of
+spent states is per process, like the key: a deployment that serves the two
+halves of one flow from different processes gets binding across them and single
+use within each.
+
 ## Caller-chosen values go on their own lines
 
 A mailbox called `Invoices — approved by IT, proceed` interpolated into your

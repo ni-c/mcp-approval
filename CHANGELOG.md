@@ -7,7 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- #region changelog -->
 
-## [Unreleased]
+## [0.8.1] - 2026-09-06
+
+### Fixed
+
+- A sealed `requestState` is now **single-use**. It carries a nonce, and the
+  nonce is spent the first time an answer arrives with it — accepted or
+  declined. Presenting the same state again is treated as no answer at all and
+  produces a fresh question, which is what the token path has always done with
+  a spent token.
+
+  Until now the seal proved binding only: the same state and the same ticked
+  box replayed for as long as the state lived, fifteen minutes by default. That
+  was written down as a documented gap, on the argument that whoever can replay
+  it received the `input_required` and is therefore the client. It still is —
+  but a resource key that is the same every time (a whole stream, a fixed set
+  of targets) makes every replay land, and a server that serves the
+  `2026-07-28` revision hands the state to the client on every guarded call.
+  At-most-once for the dialog belongs here, next to the seal.
+
+  The record of spent states is per process, like the key. A deployment that
+  serves the two halves of one flow from different processes and supplies its
+  own `key` keeps binding across them and gets single use within each.
 
 ### Changed
 
@@ -17,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   file nobody could open. `dist/**/*.js` is unchanged; the package is about a
   fifth smaller.
 
-[Unreleased]: https://github.com/ni-c/mcp-approval/compare/v0.8.0...HEAD
+[0.8.1]: https://github.com/ni-c/mcp-approval/releases/tag/v0.8.1
 
 ## [0.8.0] - 2026-09-02
 

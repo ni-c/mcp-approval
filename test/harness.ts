@@ -22,6 +22,7 @@ export function buildServer(options: {
   store: ConfirmationStore;
   key?: Uint8Array;
   elicitation?: boolean;
+  ttlSeconds?: number;
 }): {
   server: McpServer;
   deleted: string[][];
@@ -35,6 +36,9 @@ export function buildServer(options: {
     ...(options.elicitation === undefined
       ? {}
       : { elicitation: options.elicitation }),
+    ...(options.ttlSeconds === undefined
+      ? {}
+      : { ttlSeconds: options.ttlSeconds }),
   });
   const server = new McpServer({ name: 'thing-mcp', version: '0.0.0' });
 
