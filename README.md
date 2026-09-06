@@ -1,8 +1,13 @@
 # mcp-approval
 
+<!-- badges: start -->
+
+[![CI](https://img.shields.io/github/actions/workflow/status/ni-c/mcp-approval/ci.yml?branch=main&label=CI)](https://github.com/ni-c/mcp-approval/actions/workflows/ci.yml)
+<a href="https://socket.dev/npm/package/mcp-approval"><img src="https://socket.dev/api/badge/npm/package/mcp-approval" alt="Socket supply-chain report" height="20"></a>
+<br>
 [![npm version](https://img.shields.io/npm/v/mcp-approval)](https://www.npmjs.com/package/mcp-approval)
-[![node](https://img.shields.io/node/v/mcp-approval)](https://nodejs.org)
-[![license](https://img.shields.io/npm/l/mcp-approval)](LICENSE)
+[![sponsor](https://img.shields.io/badge/sponsor-ni--c-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/ni-c)
+<!-- badges: end -->
 
 Ask a **person** before your [Model Context
 Protocol](https://modelcontextprotocol.io) tool does something irreversible —
