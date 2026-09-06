@@ -129,7 +129,8 @@ export interface ApprovalOptions {
    * A stdio server is spawned per session, so the process is the flow and a
    * per-process key is the right lifetime — when it ends there is nothing
    * half-finished left to resume. Supply your own only if more than one process
-   * may serve the two halves of the same flow.
+   * may serve the two halves of the same flow — and know that single use is
+   * still enforced per process: the record of spent states is not shared.
    */
   key?: Uint8Array;
 }
@@ -172,16 +173,48 @@ export function createApproval(options: ApprovalOptions): Approver {
    * would be a formality. The spec makes protecting this a MUST wherever the
    * state decides an authorization, which is exactly what it does here.
    */
-  const codec = createRequestStateCodec<{ key: string }>({
+  const ttlSeconds = options.ttlSeconds ?? 900;
+  const codec = createRequestStateCodec<{ key: string; nonce: string }>({
     key: options.key ?? randomBytes(32),
-    ttlSeconds: options.ttlSeconds ?? 900,
+    ttlSeconds,
     // Both halves of "this state belongs to this call": the method it was
     // minted under and, where there is one, the authenticated caller.
     bind: (ctx) =>
       `${ctx.mcpReq.method}\0${ctx.http?.authInfo?.clientId ?? ''}`,
   });
 
-  /** Whether this server minted that state, for this exact operation. */
+  /**
+   * Freshness, which the seal alone does not give.
+   *
+   * The seal proves an answer belongs to a question this server asked; it
+   * says nothing about whether that question was answered already. Without
+   * this, the same sealed state and the same ticked box replay for as long as
+   * the state lives — fifteen minutes by default — and a resource key that
+   * is the same every time (a whole stream, a fixed set of targets) makes
+   * every replay land. So each state carries a nonce, and a nonce is spent
+   * the first time an answer arrives with it, whatever the answer was.
+   *
+   * Per process, like the key: a deployment that serves the two halves of one
+   * flow from different processes and supplies its own `key` gets binding
+   * across them but single use only within each. Entries outlive their
+   * usefulness by nothing — a state older than the TTL fails the seal anyway,
+   * so the set is pruned to the same horizon on every touch.
+   */
+  const spent = new Map<string, number>();
+  const spend = (nonce: string): boolean => {
+    const now = Date.now();
+    for (const [seen, expiresAt] of spent) {
+      if (expiresAt <= now) spent.delete(seen);
+    }
+    if (spent.has(nonce)) return false;
+    spent.set(nonce, now + ttlSeconds * 1000);
+    return true;
+  };
+
+  /**
+   * Whether this server minted that state, for this exact operation, and is
+   * seeing it answered for the first time.
+   */
   const mintedHere = async (
     state: string,
     ctx: ServerContext,
@@ -189,7 +222,8 @@ export function createApproval(options: ApprovalOptions): Approver {
   ): Promise<boolean> => {
     try {
       const payload = await codec.verify(state, ctx);
-      return payload.key === request.resourceKey;
+      if (payload.key !== request.resourceKey) return false;
+      return typeof payload.nonce === 'string' && spend(payload.nonce);
     } catch {
       // The reason is a fixed opaque code by design and says nothing worth
       // logging; what matters is that an unproven state grants nothing.
@@ -200,11 +234,12 @@ export function createApproval(options: ApprovalOptions): Approver {
   /**
    * What the person said, if this round carries their reply at all.
    *
-   * `none` covers two situations that want the same treatment: nobody has been
-   * asked yet, and a reply arrived that this server cannot prove it asked for.
-   * Re-asking is right for both — the alternative for the second is an error
-   * code nobody can act on, and its likeliest cause is innocent (a gateway put
-   * the server to sleep while the person was reading).
+   * `none` covers three situations that want the same treatment: nobody has
+   * been asked yet, a reply arrived that this server cannot prove it asked
+   * for, and a reply arrived for a question that was already answered.
+   * Re-asking is right for all of them — the alternative is an error code
+   * nobody can act on, and the likeliest cause of the second is innocent (a
+   * gateway put the server to sleep while the person was reading).
    */
   const readAnswer = async (
     ctx: ServerContext,
@@ -245,7 +280,13 @@ export function createApproval(options: ApprovalOptions): Approver {
           ),
         }),
       },
-      requestState: await codec.mint({ key: request.resourceKey }, ctx),
+      requestState: await codec.mint(
+        {
+          key: request.resourceKey,
+          nonce: randomBytes(16).toString('base64url'),
+        },
+        ctx
+      ),
     });
 
   return {

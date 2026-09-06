@@ -47,18 +47,14 @@ describe('on the 2026-07-28 revision', () => {
     await client.close();
   });
 
-  it('proves binding but not freshness: a state can be presented twice', async () => {
-    // Pinned deliberately, because the token path has the opposite property
-    // ("spends the token, so a replay asks again") and the difference between
-    // the two used to be an accident nobody had written down.
-    //
-    // The state is a proof this server hands out, not a secret it keeps: no
-    // nonce, nothing spent on verify, a stateless codec. So the same answer
-    // replays until it expires. That is not a way past the person — whoever can
-    // replay it received the input_required, so they are the client, and a
-    // compromised client is already out of scope. What it does mean is that
-    // at-most-once is the *server's* job for anything irreversible, which is
-    // what SECURITY.md now says.
+  it('spends a state on its answer, so presenting it again asks anew', async () => {
+    // The token path has always had this property ("spends the token, so a
+    // replay asks again"); until 0.8.1 the sealed state did not, and the
+    // difference was pinned as a documented gap. It is closed the same way:
+    // every state carries a nonce, and the nonce is spent the first time an
+    // answer arrives with it. The same answer a second time is treated as no
+    // answer at all — a fresh question, not an error — and nothing is deleted
+    // until a person ticks that one too.
     const built = build();
     const client = await connectModern(built);
 
@@ -68,9 +64,47 @@ describe('on the 2026-07-28 revision', () => {
       requestState: asked.requestState,
     };
 
-    await client.call({ ids: ['a'] }, answer);
-    await client.call({ ids: ['a'] }, answer);
+    const done = await client.call({ ids: ['a'] }, answer);
+    expect(done.resultType).not.toBe('input_required');
+    const replayed = await client.call({ ids: ['a'] }, answer);
+    expect(replayed.resultType).toBe('input_required');
+    expect(replayed.requestState).not.toBe(asked.requestState);
+    expect(built.deleted).toEqual([['a']]);
+
+    // The fresh question works like the first one did.
+    const again = await client.call(
+      { ids: ['a'] },
+      { inputResponses: ACCEPTED, requestState: replayed.requestState }
+    );
+    expect(again.resultType).not.toBe('input_required');
     expect(built.deleted).toEqual([['a'], ['a']]);
+    await client.close();
+  });
+
+  it('spends a state on a decline too, so it cannot be re-presented as an accept', async () => {
+    // `inputResponses` is attacker-controlled; the state is the only thing
+    // this server can check. A question the person declined must not be
+    // answerable a second time with the box ticked.
+    const built = build();
+    const client = await connectModern(built);
+
+    const asked = await client.call({ ids: ['a'] });
+    const declined = await client.call(
+      { ids: ['a'] },
+      {
+        inputResponses: { confirm: { action: 'decline' } },
+        requestState: asked.requestState,
+      }
+    );
+    expect(declined.resultType).not.toBe('input_required');
+    expect(built.deleted).toHaveLength(0);
+
+    const forged = await client.call(
+      { ids: ['a'] },
+      { inputResponses: ACCEPTED, requestState: asked.requestState }
+    );
+    expect(forged.resultType).toBe('input_required');
+    expect(built.deleted).toHaveLength(0);
     await client.close();
   });
 
