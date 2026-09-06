@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { createRequestStateCodec } from '@modelcontextprotocol/server';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ConfirmationStore } from '../src/index.js';
+import { ConfirmationStore, setResourceKey } from '../src/index.js';
 import {
   ACCEPTED,
   buildServer,
@@ -19,6 +20,10 @@ const build = (key?: Uint8Array) =>
 /** The same server with the dialog switched off by the operator. */
 const buildSilent = () =>
   buildServer({ store: new ConfirmationStore(), elicitation: false });
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('on the 2026-07-28 revision', () => {
   // Here the question is a RETURN value: the call ends, the person decides, and
@@ -104,6 +109,73 @@ describe('on the 2026-07-28 revision', () => {
       { inputResponses: ACCEPTED, requestState: asked.requestState }
     );
     expect(forged.resultType).toBe('input_required');
+    expect(built.deleted).toHaveLength(0);
+    await client.close();
+  });
+
+  it('forgets spent states once they could no longer open anyway', async () => {
+    // The record of spent nonces is pruned to the state's own TTL on every
+    // touch: a state older than that fails the seal before the record is
+    // consulted, so remembering it would only be memory. Observed from the
+    // outside: after the TTL a new flow works, and the old state — expired
+    // and forgotten alike — asks anew rather than acting.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const built = buildServer({
+      store: new ConfirmationStore(),
+      ttlSeconds: 60,
+    });
+    const client = await connectModern(built);
+
+    const first = await client.call({ ids: ['a'] });
+    await client.call(
+      { ids: ['a'] },
+      { inputResponses: ACCEPTED, requestState: first.requestState }
+    );
+    expect(built.deleted).toEqual([['a']]);
+
+    vi.setSystemTime(Date.now() + 61_000);
+    const second = await client.call({ ids: ['a'] });
+    expect(second.resultType).toBe('input_required');
+    await client.call(
+      { ids: ['a'] },
+      { inputResponses: ACCEPTED, requestState: second.requestState }
+    );
+    expect(built.deleted).toEqual([['a'], ['a']]);
+
+    const stale = await client.call(
+      { ids: ['a'] },
+      { inputResponses: ACCEPTED, requestState: first.requestState }
+    );
+    expect(stale.resultType).toBe('input_required');
+    expect(built.deleted).toEqual([['a'], ['a']]);
+    await client.close();
+  });
+
+  it('asks again for a state sealed without a nonce', async () => {
+    // A state minted by 0.8.0 with a shared key opens under 0.8.1 and carries
+    // no nonce. It cannot be proven fresh, so it is treated like any other
+    // answer this server cannot vouch for: a fresh question, nothing done.
+    const key = new Uint8Array(32).fill(9);
+    const built = build(key);
+    const client = await connectModern(built);
+    const asked = await client.call({ ids: ['a'] });
+    expect(asked.resultType).toBe('input_required');
+
+    const legacy = createRequestStateCodec<{ key: string }>({
+      key,
+      ttlSeconds: 900,
+      bind: (ctx) =>
+        `${ctx.mcpReq.method}\0${ctx.http?.authInfo?.clientId ?? ''}`,
+    });
+    const state = await legacy.mint(
+      { key: setResourceKey('delete_things', ['a']) },
+      { mcpReq: { method: 'tools/call' } } as Parameters<typeof legacy.mint>[1]
+    );
+    const again = await client.call(
+      { ids: ['a'] },
+      { inputResponses: ACCEPTED, requestState: state }
+    );
+    expect(again.resultType).toBe('input_required');
     expect(built.deleted).toHaveLength(0);
     await client.close();
   });
