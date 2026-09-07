@@ -210,9 +210,22 @@ class ConfirmationStore {
 }
 
 function setResourceKey(operation: string, targets: readonly string[]): string;
+function orderedResourceKey(
+  operation: string,
+  parts: readonly string[]
+): string;
 function confirmationPrompt(options: ConfirmationPromptOptions): string;
 function renderDetails(details: readonly ConfirmationDetail[]): string;
 ```
+
+`setResourceKey` is for an operation on a **set**: it sorts the targets, so a
+confirmation for `["a", "b"]` is a confirmation for `["b", "a"]` and not for
+`["a"]`. `orderedResourceKey` is for a **tuple**, where position carries
+meaning — a move from A to B, a rename from X to Y, a group and the members
+being written into it. Under the set key both directions of a move share one
+key, and a token issued for one confirms the other; the ordered key prefixes
+each part with its position before fingerprinting. Choose by asking whether
+swapping two arguments changes what happens.
 
 `canAsk` is exported on its own because a server sometimes wants to say
 something different — a preview tool that mentions the dialog will appear, say —

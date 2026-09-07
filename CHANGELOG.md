@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- #region changelog -->
 
+## [0.8.2] - 2026-09-07
+
+### Added
+
+- `orderedResourceKey(operation, parts)`, the tuple counterpart of
+  `setResourceKey`. The set key sorts its targets, which makes a move from A
+  to B and a move from B to A the same resource — so a token issued for one
+  direction confirmed the other. The ordered key prefixes each part with its
+  position (and a NUL, which no identifier reaches the key with) before
+  fingerprinting. Two servers carried a local copy of this; it belongs here.
+
 ## [0.8.1] - 2026-09-06
 
 ### Fixed
@@ -38,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   file nobody could open. `dist/**/*.js` is unchanged; the package is about a
   fifth smaller.
 
+[0.8.2]: https://github.com/ni-c/mcp-approval/releases/tag/v0.8.2
 [0.8.1]: https://github.com/ni-c/mcp-approval/releases/tag/v0.8.1
 
 ## [0.8.0] - 2026-09-02
