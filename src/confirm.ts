@@ -92,9 +92,11 @@ export class ConfirmationStore {
  * throwing would leak the length — the digests are always the same size.
  */
 function constantTimeEquals(a: string, b: string): boolean {
-  const digest = (value: string): Buffer =>
-    createHash('sha256').update(Buffer.from(value, 'utf8')).digest();
   return timingSafeEqual(digest(a), digest(b));
+}
+
+function digest(value: string): Buffer {
+  return createHash('sha256').update(Buffer.from(value, 'utf8')).digest();
 }
 
 /**
@@ -109,7 +111,7 @@ export function setResourceKey(
   targets: readonly string[]
 ): string {
   const fingerprint = createHash('sha256')
-    .update(JSON.stringify([...targets].sort()))
+    .update(JSON.stringify(targets.toSorted()))
     .digest('hex')
     .slice(0, 16);
   return `${operation}:${fingerprint}`;
