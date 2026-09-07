@@ -1,6 +1,7 @@
 export {
   ConfirmationStore,
   confirmationPrompt,
+  orderedResourceKey,
   renderDetails,
   setResourceKey,
   type ConfirmationDetail,

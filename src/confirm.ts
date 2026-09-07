@@ -1,5 +1,9 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
+// Built at runtime rather than written as an escape so no editor or linter
+// ever sees a control character in the source.
+const NUL = String.fromCharCode(0);
+
 /** How long an issued token stays usable. */
 const TOKEN_TTL_MS = 5 * 60 * 1000;
 
@@ -109,6 +113,34 @@ export function setResourceKey(
     .digest('hex')
     .slice(0, 16);
   return `${operation}:${fingerprint}`;
+}
+
+/**
+ * A resource key for an operation on a *tuple* of parts, where position is
+ * part of the meaning.
+ *
+ * `setResourceKey` sorts its targets, which is right for a set — deleting
+ * `["a", "b"]` is deleting `["b", "a"]`. It is wrong for a tuple. A move from
+ * calendar A to calendar B and a move from B to A sort to the same list and
+ * therefore share a key, so a token issued for one direction confirms the
+ * other; a rename from X to Y confirms Y to X the same way. Each part is
+ * prefixed with its index and a NUL before it goes into the set, so the
+ * fingerprint sees `0␀A, 1␀B` and `0␀B, 1␀A` as different sets.
+ *
+ * NUL is the separator because it is the one character no identifier reaches
+ * this function with: every server in the fleet refuses control characters at
+ * its edge, and a path containing NUL never leaves an entity-id layer. The
+ * index alone would not do — `["1", "a"]` and `["", "1a"]` would collide on a
+ * separator that can appear in a part.
+ */
+export function orderedResourceKey(
+  operation: string,
+  parts: readonly string[]
+): string {
+  return setResourceKey(
+    operation,
+    parts.map((part, index) => `${index}${NUL}${part}`)
+  );
 }
 
 /**

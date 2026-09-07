@@ -4,6 +4,7 @@ import {
   ConfirmationStore,
   confirmationPrompt,
   renderDetails,
+  orderedResourceKey,
   setResourceKey,
 } from '../src/index.js';
 
@@ -128,6 +129,48 @@ describe('the resource key', () => {
   it('changes when the operation does', () => {
     expect(setResourceKey('delete', ['a'])).not.toBe(
       setResourceKey('archive', ['a'])
+    );
+  });
+});
+
+describe('the ordered resource key', () => {
+  it('is the same for the same tuple', () => {
+    expect(orderedResourceKey('move', ['a', 'b'])).toBe(
+      orderedResourceKey('move', ['a', 'b'])
+    );
+  });
+
+  it('changes when the order does', () => {
+    // A move from a to b is not a move from b to a. The set key sorts both to
+    // the same list; a token for one direction must not confirm the other.
+    expect(orderedResourceKey('move', ['a', 'b'])).not.toBe(
+      orderedResourceKey('move', ['b', 'a'])
+    );
+  });
+
+  it('is not the set key for the same parts', () => {
+    expect(orderedResourceKey('move', ['a', 'b'])).not.toBe(
+      setResourceKey('move', ['a', 'b'])
+    );
+  });
+
+  it('keeps the operation in front, like the set key', () => {
+    expect(orderedResourceKey('move', ['a', 'b'])).toMatch(
+      /^move:[0-9a-f]{16}$/
+    );
+    expect(orderedResourceKey('move', ['a'])).not.toBe(
+      orderedResourceKey('copy', ['a'])
+    );
+  });
+
+  it('does not let a part impersonate the index of the next one', () => {
+    // With a printable separator, ["1", "a"] and ["", "1a"]-shaped inputs
+    // could collide. The prefix is `${index}` + NUL, and no part carries NUL.
+    expect(orderedResourceKey('op', ['1', 'a'])).not.toBe(
+      orderedResourceKey('op', ['', '1a'])
+    );
+    expect(orderedResourceKey('op', ['a', ''])).not.toBe(
+      orderedResourceKey('op', ['a'])
     );
   });
 });
