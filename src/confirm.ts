@@ -158,46 +158,102 @@ export interface ConfirmationDetail {
   value: string;
 }
 
-/** How much of a caller-chosen value is shown before it is cut. */
+/** Rendered width above which a value is shown as head, tail and a digest. */
 const MAX_DETAIL_LENGTH = 200;
 
-/**
- * C0 and C1 controls, DEL, and the invisible and direction-changing formatting
- * characters.
- *
- * `\s` covers less than it looks: it strips CR, LF, VT, LS, PS and the BOM, and
- * leaves ESC, BEL, NEL, the zero-width set and every BiDi override untouched.
- * Those are not decoration in a sentence somebody is about to agree to. `ESC[1A`
- * is a strictly stronger newline than `\n` — it moves the cursor up and
- * overwrites what is already there — and U+202E reverses the rest of the line
- * without any escape sequence at all, which is the Trojan-Source primitive.
- * Either one lets a caller-supplied value rewrite the server's own description
- * of what is about to happen.
- *
- * The same class, minus the parts `\s` already handles, is what the servers in
- * this family strip from anything they show a model. This is the one place it
- * mattered most and the one place it was missing.
- */
-const UNSAFE_CHARS =
-  // eslint-disable-next-line no-control-regex
-  /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u00ad\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g;
+/** Rendered width kept from the start and from the end of a long value. */
+const HEAD_LENGTH = 120;
+const TAIL_LENGTH = 60;
 
 /**
- * Flattens a caller-chosen value to one harmless line.
+ * Everything that is not drawn as itself: controls (C0, DEL, C1), invisible and
+ * direction-changing formatting characters, every kind of whitespace and line
+ * separator, private-use and lone-surrogate code points, noncharacters, the
+ * default-ignorable set (variation selectors, Hangul fillers, Unicode tags),
+ * and the ellipsis, which marks a cut value and so must never appear raw in
+ * one that was not cut.
  *
- * The newline is the whole trick, and giving the value its own line does not
- * defend against it: a value that can begin a *further* line writes something
- * that reads like a fresh instruction under the question, and the question
- * stops being what is being answered. The cap is the other half — a value long
- * enough to push the question out of view answers it by default. Removing
- * {@link UNSAFE_CHARS} is the third: a line that cannot be overwritten or
- * reversed after it is printed.
+ * `ESC[1A` is a strictly stronger newline than `\n` — it moves the cursor up
+ * and overwrites what is already there — and U+202E reverses the rest of the
+ * line without any escape sequence at all, which is the Trojan-Source
+ * primitive. Either one lets a caller-supplied value rewrite the server's own
+ * description of what is about to happen.
  */
-function flatten(value: string): string {
-  const flat = value.replace(UNSAFE_CHARS, '').replace(/\s+/g, ' ').trim();
-  return flat.length > MAX_DETAIL_LENGTH
-    ? `${flat.slice(0, MAX_DETAIL_LENGTH)}… (truncated)`
-    : flat;
+const ESCAPED_CHARS =
+  /[\p{Cc}\p{Cf}\p{Cs}\p{Co}\p{Z}\p{Default_Ignorable_Code_Point}\p{Noncharacter_Code_Point}…]/u;
+
+function escapeCodePoint(char: string): string {
+  const code = char.codePointAt(0) as number;
+  const hex = code.toString(16);
+  return code > 0xffff ? `\\u{${hex}}` : `\\u${hex.padStart(4, '0')}`;
+}
+
+/**
+ * One rendered token per code point.
+ *
+ * The rendering is injective: only a single interior U+0020 and a character
+ * that is not in {@link ESCAPED_CHARS} appear as themselves, and a backslash
+ * that could be mistaken for the start of an escape is doubled. Read left to
+ * right, the output can be turned back into the value.
+ */
+function renderTokens(value: string): string[] {
+  const chars = Array.from(value);
+  const tokens = chars.map((char, index) => {
+    if (char === ' ') {
+      const interior = index > 0 && index < chars.length - 1;
+      const single = chars[index - 1] !== ' ' && chars[index + 1] !== ' ';
+      return interior && single ? char : '\\u0020';
+    }
+    return ESCAPED_CHARS.test(char) ? escapeCodePoint(char) : char;
+  });
+  return tokens.map((token, index) => {
+    if (token !== '\\') return token;
+    const next = tokens[index + 1]?.[0];
+    return next === '\\' || next === 'u' ? '\\\\' : token;
+  });
+}
+
+/** Whole tokens from the front of `tokens` that fit in `budget` characters. */
+function take(tokens: readonly string[], budget: number): string[] {
+  const kept: string[] = [];
+  let used = 0;
+  for (const token of tokens) {
+    if (used + token.length > budget) break;
+    kept.push(token);
+    used += token.length;
+  }
+  return kept;
+}
+
+/**
+ * Renders a caller-chosen value as one line that no other value renders as.
+ *
+ * Collapsing and trimming whitespace, dropping invisible characters, and cutting
+ * at a fixed length each make different values look the same, and the person
+ * approving the dialog is comparing what they see with what they expect: a
+ * folder named `Public/Projects ` (trailing space), `Public/Projects` followed
+ * by a no-break space, or `Archive` followed by a zero-width space must not read
+ * as the plain name. So nothing is removed. Controls, invisibles, bidi marks and
+ * every whitespace other than one interior space are shown as `\uXXXX` escapes
+ * (`\u{XXXXX}` above the BMP), which also keeps CR, LF and ESC out of the line;
+ * leading, trailing and doubled spaces are escaped too.
+ *
+ * A value whose rendering is longer than {@link MAX_DETAIL_LENGTH} is shown as
+ * its start, an ellipsis, its end, its length and the start of its SHA-256, so
+ * a difference anywhere in it changes the line. The cap stays, because a value
+ * long enough to push the question out of view answers it by default.
+ */
+function render(value: string): string {
+  const tokens = renderTokens(value);
+  const line = tokens.join('');
+  if (line.length <= MAX_DETAIL_LENGTH) return line;
+  const head = take(tokens, HEAD_LENGTH).join('');
+  const tail = take(tokens.toReversed(), TAIL_LENGTH).toReversed().join('');
+  const hash = createHash('sha256')
+    .update(value, 'utf16le')
+    .digest('hex')
+    .slice(0, 16);
+  return `${head}…${tail} (${Array.from(value).length} characters, sha256:${hash})`;
 }
 
 export function renderDetails(details: readonly ConfirmationDetail[]): string {
@@ -205,7 +261,7 @@ export function renderDetails(details: readonly ConfirmationDetail[]): string {
   return (
     '\n\nValues below are supplied by the caller, not by this server:\n' +
     details
-      .map((detail) => `  ${flatten(detail.label)}: ${flatten(detail.value)}`)
+      .map((detail) => `  ${render(detail.label)}: ${render(detail.value)}`)
       .join('\n')
   );
 }
