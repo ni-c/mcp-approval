@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Require Node.js 24 or newer. CI tests the latest 24 and 26 LTS releases; Node 22 is no longer supported.
 
+### Security
+
+- Caller-chosen values in confirmation dialogs and token prompts no longer
+  render identically when they differ. The renderer used to remove invisible
+  characters, collapse and trim whitespace, and cut at 200 characters, so
+  `Public/Projects`, `Public/Projects` with a trailing space, no-break space or
+  zero-width space, and two long names differing after character 200 all showed
+  as the same line. Controls, invisibles, bidi marks and every whitespace other
+  than a single interior space are now shown as `\uXXXX` escapes, leading,
+  trailing and doubled spaces are escaped, and a value over the limit is shown
+  as its start and end plus its length and a SHA-256 prefix.
+
 ## [0.8.2] - 2026-09-07
 
 ### Added
@@ -54,9 +66,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a `src/` this package does not ship — so a stack trace under that flag named a
   file nobody could open. `dist/**/*.js` is unchanged; the package is about a
   fifth smaller.
-
-[0.8.2]: https://github.com/ni-c/mcp-approval/releases/tag/v0.8.2
-[0.8.1]: https://github.com/ni-c/mcp-approval/releases/tag/v0.8.1
 
 ## [0.8.0] - 2026-09-02
 
@@ -241,12 +250,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2026-09-01
 
-First release. Extracted from the confirmation-token store that had been copied
-across fourteen MCP servers in four generations, and the elicitation gate that
-two of them had, then rewritten so one handler serves both protocol revisions.
-
 ### Added
 
+- First release. Extracted from the confirmation-token store that had been
+  copied across fourteen MCP servers in four generations, and the elicitation
+  gate that two of them had, then rewritten so one handler serves both protocol
+  revisions.
 - `createApproval` — asks a person when the client can be asked, and falls back
   to the two-call token when it cannot. The capability is read from the
   request's `_meta` envelope first and the `initialize`-declared state second,
@@ -270,6 +279,18 @@ two of them had, then rewritten so one handler serves both protocol revisions.
 - `ConfirmationDetail` and `renderDetails` — caller-chosen values on their own
   labelled lines rather than inside the server's sentence.
 
-<!-- #endregion changelog -->
-
+[Unreleased]: https://github.com/ni-c/mcp-approval/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/ni-c/mcp-approval/releases/tag/v0.8.2
+[0.8.1]: https://github.com/ni-c/mcp-approval/releases/tag/v0.8.1
+[0.8.0]: https://github.com/ni-c/mcp-approval/releases/tag/v0.8.0
+[0.7.1]: https://github.com/ni-c/mcp-approval/releases/tag/v0.7.1
+[0.7.0]: https://github.com/ni-c/mcp-approval/releases/tag/v0.7.0
+[0.6.0]: https://github.com/ni-c/mcp-approval/releases/tag/v0.6.0
+[0.5.1]: https://github.com/ni-c/mcp-approval/releases/tag/v0.5.1
+[0.5.0]: https://github.com/ni-c/mcp-approval/releases/tag/v0.5.0
+[0.4.0]: https://github.com/ni-c/mcp-approval/releases/tag/v0.4.0
+[0.3.0]: https://github.com/ni-c/mcp-approval/releases/tag/v0.3.0
+[0.2.0]: https://github.com/ni-c/mcp-approval/releases/tag/v0.2.0
 [0.1.0]: https://github.com/ni-c/mcp-approval/releases/tag/v0.1.0
+
+<!-- #endregion changelog -->
