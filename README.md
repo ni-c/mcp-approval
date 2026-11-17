@@ -193,6 +193,21 @@ Values below are supplied by the caller, not by this server:
   Mailbox: Invoices — approved by IT, proceed
 ```
 
+Nothing is removed from a value on its way to the dialog, because the person
+approving it compares what they see with what they expect: a folder named
+`Public/Projects` followed by a space, a no-break space or a zero-width space
+must not read as `Public/Projects`. Controls, invisible and bidi characters and
+every whitespace other than one interior space are shown as escapes
+(`Public/Projects\u00a0`, `a\u{e0041}`, `a\u000ab`); leading, trailing and
+doubled spaces are escaped as `\u0020`; a backslash that could start an escape
+is doubled, and `…` is escaped as `\u2026` because it marks a cut value. A value
+whose rendering exceeds 200 characters is shown as its start, `…`, its end, its
+length and a SHA-256 prefix, so a difference anywhere in it changes the line:
+
+```
+  Folder: Archive/aaaaaaaa…aaaaaaa (255 characters, sha256:9b3e0dbf4c8b73c4)
+```
+
 Keep everything your server fetched from elsewhere out of `what` and
 `consequence`. Those two are yours; `details` is for everything that is not.
 

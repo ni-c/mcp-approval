@@ -190,6 +190,33 @@ describe('on the 2026-07-28 revision', () => {
     await client.close();
   });
 
+  it('shows a name that differs only in whitespace or invisibles as different', async () => {
+    // Two folder names a colleague can create side by side: the dialog has to
+    // show which one the action targets.
+    const built = build();
+    const client = await connectModern(built);
+    const lineOf = async (ids: string[]) =>
+      (
+        (await client.call({ ids })).inputRequests?.confirm?.params.message ??
+        ''
+      )
+        .split('\n')
+        .at(-1);
+    const plain = await lineOf(['Public/Projects']);
+    expect(plain).toBe('  Ids: Public/Projects');
+    expect(await lineOf(['Public/Projects '])).toBe(
+      '  Ids: Public/Projects\\u0020'
+    );
+    expect(await lineOf(['Public/Projects\u00a0'])).toBe(
+      '  Ids: Public/Projects\\u00a0'
+    );
+    expect(await lineOf(['Archive\u200b'])).toBe('  Ids: Archive\\u200b');
+    expect(await lineOf(['Public/Projects\nApproved'])).toBe(
+      '  Ids: Public/Projects\\u000aApproved'
+    );
+    await client.close();
+  });
+
   it('does nothing when the box was left unticked', async () => {
     const built = build();
     const client = await connectModern(built);
@@ -500,6 +527,20 @@ describe('a client that could be asked, with the dialog switched off', () => {
     expect(client.prompts).toHaveLength(0);
     expect(built.deleted).toEqual([['a']]);
     expect(textOf(done)).toContain('deleted a');
+    await client.close();
+  });
+
+  it('shows the token prompt the same exact values as the dialog', async () => {
+    const built = buildSilent();
+    const client = await connectLegacy(built, 'accept');
+    const first = await client.call({
+      ids: ['Public/Projects\t', 'x'.repeat(300)],
+    });
+    expect(textOf(first)).toMatch(
+      /^ {2}Ids: Public\/Projects\\u0009, x+…x+ \(\d+ characters, sha256:[0-9a-f]{16}\)$/m
+    );
+    const second = await client.call({ ids: ['Public/Projects\t'] });
+    expect(textOf(second)).toMatch(/^ {2}Ids: Public\/Projects\\u0009$/m);
     await client.close();
   });
 
